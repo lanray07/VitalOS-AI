@@ -24,6 +24,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   PROJECT_PATH: VitalOSAI.xcodeproj
   SCHEME: VitalOSAI
   CONFIGURATION: Release
@@ -49,6 +50,7 @@ jobs:
 
       - name: Build for iOS Simulator
         run: |
+          mkdir -p build/logs
           set -o pipefail
           xcodebuild \
             -project "$PROJECT_PATH" \
@@ -56,7 +58,17 @@ jobs:
             -configuration Debug \
             -destination "generic/platform=iOS Simulator" \
             CODE_SIGNING_ALLOWED=NO \
-            build
+            build 2>&1 | tee build/logs/simulator-xcodebuild.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            grep -E "error:|warning:" build/logs/simulator-xcodebuild.log | tail -50 | while IFS= read -r line; do
+              safe_line=${line//'%'/'%25'}
+              safe_line=${safe_line//$'\n'/'%0A'}
+              safe_line=${safe_line//$'\r'/'%0D'}
+              echo "::error file=.github/workflows/ios-xcode.yml,line=1::$safe_line"
+            done
+            exit "$status"
+          fi
 
   archive-and-upload:
     name: Archive and Upload
@@ -150,6 +162,7 @@ jobs:
 
       - name: Archive
         run: |
+          mkdir -p build/logs
           set -o pipefail
           xcodebuild \
             -project "$PROJECT_PATH" \
@@ -161,7 +174,17 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
             PROVISIONING_PROFILE_SPECIFIER="${{ steps.signing.outputs.profile_name }}" \
-            archive
+            archive 2>&1 | tee build/logs/archive-xcodebuild.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            grep -E "error:|warning:" build/logs/archive-xcodebuild.log | tail -50 | while IFS= read -r line; do
+              safe_line=${line//'%'/'%25'}
+              safe_line=${safe_line//$'\n'/'%0A'}
+              safe_line=${safe_line//$'\r'/'%0D'}
+              echo "::error file=.github/workflows/ios-xcode.yml,line=1::$safe_line"
+            done
+            exit "$status"
+          fi
 
       - name: Export IPA
         run: |
