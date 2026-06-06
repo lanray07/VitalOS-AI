@@ -51,6 +51,7 @@ jobs:
       - name: Build for iOS Simulator
         run: |
           mkdir -p build/logs
+          set +e
           set -o pipefail
           xcodebuild \
             -project "$PROJECT_PATH" \
@@ -60,8 +61,13 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build 2>&1 | tee build/logs/simulator-xcodebuild.log
           status=${PIPESTATUS[0]}
+          set -e
           if [ "$status" -ne 0 ]; then
-            grep -E "error:|warning:" build/logs/simulator-xcodebuild.log | tail -50 | while IFS= read -r line; do
+            diagnostic_lines=$(grep -E "error:|warning:|failed|Failure|No such|not found|cannot|Command SwiftCompile|CompileSwift" build/logs/simulator-xcodebuild.log | tail -80 || true)
+            if [ -z "$diagnostic_lines" ]; then
+              diagnostic_lines=$(tail -120 build/logs/simulator-xcodebuild.log)
+            fi
+            printf '%s\n' "$diagnostic_lines" | while IFS= read -r line; do
               safe_line=${line//'%'/'%25'}
               safe_line=${safe_line//$'\n'/'%0A'}
               safe_line=${safe_line//$'\r'/'%0D'}
@@ -163,6 +169,7 @@ jobs:
       - name: Archive
         run: |
           mkdir -p build/logs
+          set +e
           set -o pipefail
           xcodebuild \
             -project "$PROJECT_PATH" \
@@ -176,8 +183,13 @@ jobs:
             PROVISIONING_PROFILE_SPECIFIER="${{ steps.signing.outputs.profile_name }}" \
             archive 2>&1 | tee build/logs/archive-xcodebuild.log
           status=${PIPESTATUS[0]}
+          set -e
           if [ "$status" -ne 0 ]; then
-            grep -E "error:|warning:" build/logs/archive-xcodebuild.log | tail -50 | while IFS= read -r line; do
+            diagnostic_lines=$(grep -E "error:|warning:|failed|Failure|No such|not found|cannot|Command SwiftCompile|CompileSwift" build/logs/archive-xcodebuild.log | tail -80 || true)
+            if [ -z "$diagnostic_lines" ]; then
+              diagnostic_lines=$(tail -120 build/logs/archive-xcodebuild.log)
+            fi
+            printf '%s\n' "$diagnostic_lines" | while IFS= read -r line; do
               safe_line=${line//'%'/'%25'}
               safe_line=${safe_line//$'\n'/'%0A'}
               safe_line=${safe_line//$'\r'/'%0D'}
