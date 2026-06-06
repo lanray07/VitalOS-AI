@@ -14,57 +14,69 @@ struct HabitSystemView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     if habits.isEmpty {
-                        GlassPanel {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Build your consistency layer")
-                                    .font(.headline)
-                                Text("Track small wellness habits locally and use them to personalize protocols.")
-                                    .foregroundStyle(Color.softText)
-                                PrimaryButton(title: "Add Starter Habits", systemImage: "plus") {
-                                    starterHabits.forEach { modelContext.insert(Habit(title: $0)) }
-                                }
-                            }
-                        }
+                        starterHabitsPanel
                     }
 
                     ForEach(habits) { habit in
-                        GlassPanel {
-                            HStack {
-                                Button {
-                                    habit.completed.toggle()
-                                    habit.streak = habit.completed ? habit.streak + 1 : max(0, habit.streak - 1)
-                                } label: {
-                                    Image(systemName: habit.completed ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(habit.completed ? .vitalEmerald : .softText)
-                                }
-                                VStack(alignment: .leading) {
-                                    Text(habit.title)
-                                    Text("\(habit.streak) day streak")
-                                        .font(.caption)
-                                        .foregroundStyle(Color.softText)
-                                }
-                                Spacer()
-                            }
-                        }
+                        habitRow(habit)
                     }
 
-                    GlassPanel {
-                        HStack {
-                            TextField("Custom habit", text: $customHabit)
-                            Button {
-                                guard !customHabit.isEmpty else { return }
-                                modelContext.insert(Habit(title: customHabit))
-                                customHabit = ""
-                            } label: {
-                                Image(systemName: "plus.circle.fill")
-                            }
-                        }
-                    }
+                    customHabitPanel
                 }
                 .padding(20)
             }
         }
         .navigationTitle("Habits")
+    }
+
+    private var starterHabitsPanel: some View {
+        GlassPanel {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Build your consistency layer")
+                    .font(.headline)
+                Text("Track small wellness habits locally and use them to personalize protocols.")
+                    .foregroundStyle(Color.softText)
+                PrimaryButton(title: "Add Starter Habits", systemImage: "plus") {
+                    starterHabits.forEach { modelContext.insert(Habit(title: $0)) }
+                }
+            }
+        }
+    }
+
+    private func habitRow(_ habit: Habit) -> some View {
+        GlassPanel {
+            HStack {
+                Button {
+                    habit.completed.toggle()
+                    habit.streak = habit.completed ? habit.streak + 1 : max(0, habit.streak - 1)
+                } label: {
+                    Image(systemName: habit.completed ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(habit.completed ? Color.vitalEmerald : Color.softText)
+                }
+                VStack(alignment: .leading) {
+                    Text(habit.title)
+                    Text("\(habit.streak) day streak")
+                        .font(.caption)
+                        .foregroundStyle(Color.softText)
+                }
+                Spacer()
+            }
+        }
+    }
+
+    private var customHabitPanel: some View {
+        GlassPanel {
+            HStack {
+                TextField("Custom habit", text: $customHabit)
+                Button {
+                    guard !customHabit.isEmpty else { return }
+                    modelContext.insert(Habit(title: customHabit))
+                    customHabit = ""
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                }
+            }
+        }
     }
 }
 
@@ -78,8 +90,8 @@ struct WellnessAnalyticsDashboardView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     AnalyticsChartCard(title: "Vital Score", values: [68, 70, 73, 72, 78, 76, 80])
-                    AnalyticsChartCard(title: "Sleep", values: [66, 70, 72, 76, 74, 78, 76], tint: .vitalEmerald)
-                    AnalyticsChartCard(title: "Recovery", values: [62, 64, 67, 68, 70, 66, 68], tint: .vitalEmerald)
+                    AnalyticsChartCard(title: "Sleep", values: [66, 70, 72, 76, 74, 78, 76], tint: Color.vitalEmerald)
+                    AnalyticsChartCard(title: "Recovery", values: [62, 64, 67, 68, 70, 66, 68], tint: Color.vitalEmerald)
                     AnalyticsChartCard(title: "Stress", values: [48, 43, 51, 40, 39, 37, 34])
                     MetricCard(metric: .init(title: "Consistency", value: 82, tintName: "emerald"))
                     NavigationLink {

@@ -51,7 +51,7 @@ struct PaywallView: View {
                     appState.storeService.purchasePlaceholder(plan: plan)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(plan == .elite ? .vitalEmerald : .electricBlue)
+                .tint(plan == .elite ? Color.vitalEmerald : Color.electricBlue)
             }
         }
     }

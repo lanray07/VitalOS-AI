@@ -4,7 +4,7 @@ struct VitalScoreEngineView: View {
     var body: some View {
         FeatureScaffold(title: "Vital Score Engine") {
             VitalScoreRing(score: 78, title: "Adaptive")
-            AnalyticsChartCard(title: "Score Trend", values: [68, 70, 71, 76, 73, 78, 80], tint: .vitalEmerald)
+            AnalyticsChartCard(title: "Score Trend", values: [68, 70, 71, 76, 73, 78, 80], tint: Color.vitalEmerald)
             ProtocolCard(item: .init(title: "Consistency lift", detail: "Your score improves when sleep timing, movement, and check-ins stay consistent.", category: "Score"))
         }
     }
@@ -13,9 +13,9 @@ struct VitalScoreEngineView: View {
 struct RecoveryIntelligenceView: View {
     var body: some View {
         FeatureScaffold(title: "Recovery Intelligence") {
-            VitalScoreRing(score: 68, title: "Recovery", tint: .vitalEmerald)
+            VitalScoreRing(score: 68, title: "Recovery", tint: Color.vitalEmerald)
             ProtocolCard(item: .init(title: "Recovery adjustment", detail: "Consider lighter activity today and prioritize an earlier recovery window.", category: "Recovery"))
-            AnalyticsChartCard(title: "Recovery Trend", values: [62, 65, 60, 68, 71, 66, 68], tint: .vitalEmerald)
+            AnalyticsChartCard(title: "Recovery Trend", values: [62, 65, 60, 68, 71, 66, 68], tint: Color.vitalEmerald)
         }
     }
 }
@@ -35,7 +35,7 @@ struct StressIntelligenceView: View {
         FeatureScaffold(title: "Stress Intelligence") {
             MetricCard(metric: .init(title: "Stress Load", value: 34, tintName: "emerald"))
             ProtocolCard(item: .init(title: "Breathing recommendation", detail: "Try a short breathing reset before your next high-demand block.", category: "Stress"))
-            AnalyticsChartCard(title: "Stress Trend", values: [48, 44, 51, 39, 36, 42, 34], tint: .vitalEmerald)
+            AnalyticsChartCard(title: "Stress Trend", values: [48, 44, 51, 39, 36, 42, 34], tint: Color.vitalEmerald)
         }
     }
 }

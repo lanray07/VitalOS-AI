@@ -23,7 +23,8 @@ struct ObsidianBackground: View {
                             let y = size.height * CGFloat(0.18 + progress * 0.64)
                             var path = Path()
                             path.addEllipse(in: CGRect(x: x - 1, y: y - 1, width: 2, height: 2))
-                            context.fill(path, with: .color(index.isMultiple(of: 2) ? .electricBlue.opacity(0.22) : .vitalEmerald.opacity(0.18)))
+                            let color = index.isMultiple(of: 2) ? Color.electricBlue.opacity(0.22) : Color.vitalEmerald.opacity(0.18)
+                            context.fill(path, with: .color(color))
                         }
                     }
                     .blur(radius: 18)
@@ -44,21 +45,21 @@ struct GlassPanel<Content: View>: View {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(.white.opacity(0.12), lineWidth: 1)
             }
-            .shadow(color: .electricBlue.opacity(0.16), radius: 18, x: 0, y: 10)
+            .shadow(color: Color.electricBlue.opacity(0.16), radius: 18, x: 0, y: 10)
     }
 }
 
 struct VitalScoreRing: View {
     var score: Int
     var title: String = "Vital Score"
-    var tint: Color = .electricBlue
+    var tint: Color = Color.electricBlue
 
     var body: some View {
         ZStack {
             Circle().stroke(.white.opacity(0.08), lineWidth: 18)
             Circle()
                 .trim(from: 0, to: CGFloat(score) / 100)
-                .stroke(AngularGradient(colors: [tint, .vitalEmerald, tint], center: .center), style: StrokeStyle(lineWidth: 18, lineCap: .round))
+                .stroke(AngularGradient(colors: [tint, Color.vitalEmerald, tint], center: .center), style: StrokeStyle(lineWidth: 18, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .shadow(color: tint.opacity(0.55), radius: 14)
             VStack(spacing: 4) {
@@ -86,13 +87,13 @@ struct MetricCard: View {
                         .foregroundStyle(Color.softText)
                     Spacer()
                     Circle()
-                        .fill(metric.tintName == "emerald" ? .vitalEmerald : .electricBlue)
+                        .fill(metric.tintName == "emerald" ? Color.vitalEmerald : Color.electricBlue)
                         .frame(width: 8, height: 8)
                 }
                 Text("\(metric.value)")
                     .font(.system(.title2, design: .rounded, weight: .semibold))
                 ProgressView(value: Double(metric.value), total: 100)
-                    .tint(metric.tintName == "emerald" ? .vitalEmerald : .electricBlue)
+                    .tint(metric.tintName == "emerald" ? Color.vitalEmerald : Color.electricBlue)
             }
         }
     }
@@ -145,7 +146,7 @@ struct VoiceWaveformView: View {
         HStack(spacing: 4) {
             ForEach(Array(levels.enumerated()), id: \.offset) { _, level in
                 Capsule()
-                    .fill(LinearGradient(colors: [.electricBlue, .vitalEmerald], startPoint: .top, endPoint: .bottom))
+                    .fill(LinearGradient(colors: [Color.electricBlue, Color.vitalEmerald], startPoint: .top, endPoint: .bottom))
                     .frame(width: 5, height: max(8, 72 * level))
                     .opacity(active ? 1 : 0.45)
                     .animation(.spring(response: 0.28, dampingFraction: 0.72), value: level)
@@ -159,7 +160,7 @@ struct VoiceWaveformView: View {
 struct AnalyticsChartCard: View {
     var title: String
     var values: [Int]
-    var tint: Color = .electricBlue
+    var tint: Color = Color.electricBlue
 
     var body: some View {
         GlassPanel {

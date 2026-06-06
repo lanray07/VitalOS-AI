@@ -26,7 +26,7 @@ struct VoiceCoachView: View {
                                 Image(systemName: speech.isRecording ? "stop.fill" : "mic.fill")
                                     .font(.title2)
                                     .frame(width: 64, height: 64)
-                                    .background(speech.isRecording ? .red.opacity(0.22) : .electricBlue.opacity(0.22), in: Circle())
+                                    .background(speech.isRecording ? Color.red.opacity(0.22) : Color.electricBlue.opacity(0.22), in: Circle())
                             }
                             .buttonStyle(.plain)
                         }
