@@ -36,7 +36,7 @@ env:
 jobs:
   simulator-build:
     name: Simulator Build
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -79,7 +79,7 @@ jobs:
 
   archive-and-upload:
     name: Archive and Upload
-    runs-on: macos-15
+    runs-on: macos-26
     needs: simulator-build
     permissions:
       contents: read
