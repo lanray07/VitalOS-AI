@@ -91,7 +91,7 @@ jobs:
       ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID || secrets.APP_STORE_CONNECT_API_KEY_KEY_ID || secrets.APP_STORE_CONNECT_KEY_ID || secrets.APPSTORE_API_KEY_ID || secrets.APPSTORE_KEY_ID || secrets.ASC_KEY_ID || secrets.API_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID || secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID || secrets.APP_STORE_CONNECT_ISSUER_ID || secrets.APPSTORE_API_ISSUER_ID || secrets.APPSTORE_ISSUER_ID || secrets.ASC_ISSUER_ID || secrets.API_ISSUER_ID || secrets.ISSUER_ID }}
       ASC_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 || secrets.APP_STORE_CONNECT_API_PRIVATE_KEY_BASE64 || secrets.APP_STORE_CONNECT_API_KEY_KEY_BASE64 || secrets.APP_STORE_CONNECT_API_KEY_CONTENT_BASE64 || secrets.ASC_KEY_BASE64 || secrets.ASC_PRIVATE_KEY_BASE64 || secrets.APPSTORE_API_PRIVATE_KEY_BASE64 || secrets.APPSTORE_PRIVATE_KEY_BASE64 || secrets.APPSTORE_P8_BASE64 || secrets.APP_STORE_CONNECT_PRIVATE_KEY_BASE64 || secrets.API_PRIVATE_KEY_BASE64 || secrets.API_KEY_BASE64 }}
-      ASC_KEY_RAW: ${{ secrets.APP_STORE_CONNECT_API_KEY || secrets.APP_STORE_CONNECT_API_KEY_KEY || secrets.APP_STORE_CONNECT_API_KEY_CONTENT || secrets.ASC_PRIVATE_KEY || secrets.APPSTORE_PRIVATE_KEY || secrets.APPSTORE_P8 || secrets.APP_STORE_CONNECT_PRIVATE_KEY || secrets.API_PRIVATE_KEY }}
+      ASC_KEY_RAW: ${{ secrets.APP_STORE_CONNECT_API_PRIVATE_KEY || secrets.APP_STORE_CONNECT_API_KEY || secrets.APP_STORE_CONNECT_API_KEY_KEY || secrets.APP_STORE_CONNECT_API_KEY_CONTENT || secrets.ASC_PRIVATE_KEY || secrets.APPSTORE_PRIVATE_KEY || secrets.APPSTORE_P8 || secrets.APP_STORE_CONNECT_PRIVATE_KEY || secrets.API_PRIVATE_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -154,7 +154,7 @@ jobs:
           if [ -n "${ASC_KEY_BASE64:-}" ]; then
             printf '%s' "$ASC_KEY_BASE64" | base64 --decode > "$key_path"
           else
-            printf '%s' "$ASC_KEY_RAW" > "$key_path"
+            printf '%s' "$ASC_KEY_RAW" | perl -pe 's/\\n/\n/g' > "$key_path"
           fi
           chmod 600 "$key_path"
           echo "ASC_KEY_PATH=$key_path" >> "$GITHUB_ENV"
