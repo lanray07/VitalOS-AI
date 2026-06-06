@@ -23,7 +23,7 @@ def token
   end
 end
 
-def request(method, path, body = nil, retry_not_found: false)
+def request(method, path, body = nil, retry_not_found: false, allow_conflict: false)
   uri = URI(path.start_with?("http") ? path : "#{API_BASE}#{path}")
   req = Object.const_get("Net::HTTP::#{method.capitalize}").new(uri)
   req["Authorization"] = "Bearer #{token}"
@@ -32,6 +32,7 @@ def request(method, path, body = nil, retry_not_found: false)
   req.body = JSON.generate(body) if body
   response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) { |http| http.request(req) }
   return nil if retry_not_found && response.code.to_i == 404
+  return { "conflict" => true, "body" => response.body } if allow_conflict && response.code.to_i == 409
   unless response.code.to_i.between?(200, 299)
     warn "#{method.upcase} #{uri} failed with HTTP #{response.code}"
     warn response.body
@@ -62,6 +63,16 @@ def post(type, attributes, relationships = {})
       relationships: relationships
     }
   })
+end
+
+def post_allow_conflict(type, attributes, relationships = {})
+  request("post", "/#{type}", {
+    data: {
+      type: type,
+      attributes: attributes,
+      relationships: relationships
+    }
+  }, allow_conflict: true)
 end
 
 def each_page(path)
@@ -122,6 +133,7 @@ unless group
   group = post("subscriptionGroups", { referenceName: "VitalOS AI Subscriptions" }, {
     app: { data: { type: "apps", id: app_id } }
   })["data"]
+  subscription_groups << group
   puts "Created subscription group."
 end
 
@@ -163,12 +175,14 @@ plans = [
 ]
 
 existing_subscriptions = []
-each_page("/subscriptionGroups/#{group["id"]}/subscriptions?limit=100") { |subscription| existing_subscriptions << subscription }
+subscription_groups.each do |existing_group|
+  each_page("/subscriptionGroups/#{existing_group["id"]}/subscriptions?limit=100") { |subscription| existing_subscriptions << subscription }
+end
 
 plans.each do |plan|
   subscription = existing_subscriptions.find { |item| item.dig("attributes", "productId") == plan[:product_id] }
   unless subscription
-    subscription = post("subscriptions", {
+    created = post_allow_conflict("subscriptions", {
       name: plan[:name],
       productId: plan[:product_id],
       familySharable: false,
@@ -177,7 +191,13 @@ plans.each do |plan|
       groupLevel: plan[:level]
     }, {
       group: { data: { type: "subscriptionGroups", id: group["id"] } }
-    })["data"]
+    })
+    if created["conflict"]
+      puts "Subscription #{plan[:product_id]} already exists in App Store Connect."
+      next
+    end
+    subscription = created["data"]
+    existing_subscriptions << subscription
     puts "Created subscription #{plan[:product_id]}."
   end
 
