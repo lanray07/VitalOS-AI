@@ -156,21 +156,21 @@ plans = [
     name: "Vital Premium Monthly",
     period: "ONE_MONTH",
     level: 2,
-    description: "Adaptive protocols, AI coach, voice coaching, advanced analytics, and future projections."
+    description: "Adaptive protocols, AI coach, and analytics."
   },
   {
     product_id: "vitalos.premium.yearly",
     name: "Vital Premium Yearly",
     period: "ONE_YEAR",
     level: 2,
-    description: "One year of adaptive protocols, AI coach, voice coaching, advanced analytics, and future projections."
+    description: "Yearly adaptive protocols, AI coach, and analytics."
   },
   {
     product_id: "vitalos.elite.monthly",
     name: "Vital Elite Monthly",
     period: "ONE_MONTH",
     level: 1,
-    description: "Premium AI models, deep analytics, advanced personalization, and premium themes."
+    description: "Premium AI models and deeper personalization."
   }
 ]
 
