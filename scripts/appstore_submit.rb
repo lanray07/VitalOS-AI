@@ -63,17 +63,27 @@ def patch(type, id, attributes)
   })
 end
 
-def patch_review_submission(id, attributes, version_id)
+def patch_review_submission(id, attributes)
   request("patch", "/reviewSubmissions/#{id}", {
     data: {
       type: "reviewSubmissions",
       id: id,
-      attributes: attributes,
+      attributes: attributes
+    }
+  })
+end
+
+def create_review_submission(app_id, version_id, allow_conflict: true)
+  request("post", "/reviewSubmissions", {
+    data: {
+      type: "reviewSubmissions",
+      attributes: { platform: "IOS" },
       relationships: {
+        app: { data: { type: "apps", id: app_id } },
         appStoreVersionForReview: { data: { type: "appStoreVersions", id: version_id } }
       }
     }
-  })
+  }, allow_conflict: allow_conflict)
 end
 
 def each_page(path)
@@ -128,21 +138,19 @@ subscriptions.each do |subscription|
   end
 end
 
-review_submission = request("post", "/reviewSubmissions", {
-  data: {
-    type: "reviewSubmissions",
-    attributes: { platform: "IOS" },
-    relationships: {
-      app: { data: { type: "apps", id: app_id } },
-      appStoreVersionForReview: { data: { type: "appStoreVersions", id: version["id"] } }
-    }
-  }
-}, allow_conflict: true)
+review_submission = create_review_submission(app_id, version["id"], allow_conflict: true)
 
 if review_submission["conflict"]
   existing = []
   each_page("/apps/#{app_id}/reviewSubmissions?limit=20") { |submission| existing << submission }
-  review_submission_data = existing.find { |submission| submission.dig("attributes", "state") == "READY_FOR_REVIEW" }
+  stale_ready = existing.select { |submission| submission.dig("attributes", "state") == "READY_FOR_REVIEW" }
+  stale_ready.each do |submission|
+    patch_review_submission(submission["id"], { canceled: true })
+    puts "Canceled stale review submission #{submission["id"]}."
+  end
+
+  review_submission = create_review_submission(app_id, version["id"], allow_conflict: false)
+  review_submission_data = review_submission["data"]
   unless review_submission_data
     warn "Could not create or find a ready review submission."
     warn review_submission["body"]
@@ -169,5 +177,5 @@ else
   puts "Added app version to review submission."
 end
 
-patch_review_submission(review_submission_data["id"], { submitted: true }, version["id"])
+patch_review_submission(review_submission_data["id"], { submitted: true })
 puts "Submitted VitalOS AI for App Review."
