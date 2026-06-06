@@ -193,7 +193,7 @@ jobs:
           key = OpenSSL::PKey.read(File.read(ENV.fetch("ASC_KEY_PATH")))
           der_signature = key.sign(OpenSSL::Digest.new("SHA256"), signing_input)
           asn1 = OpenSSL::ASN1.decode(der_signature)
-          signature = asn1.value.map { |integer| integer.value.to_i.to_s(2).rjust(32, "\0")[-32, 32] }.join
+          signature = asn1.value.map { |integer| [integer.value.to_i.to_s(16).rjust(64, "0")[-64, 64]].pack("H*") }.join
           token = "#{signing_input}.#{b64url(signature)}"
 
           uri = URI("https://api.appstoreconnect.apple.com/v1/apps/#{ENV.fetch("APP_STORE_CONNECT_APP_ID")}")
