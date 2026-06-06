@@ -105,6 +105,15 @@ app_infos.each do |info|
     })
     puts "Updated privacy URLs for #{loc.dig("attributes", "locale")}."
   end
+
+  age_rating = request("get", "/appInfos/#{info["id"]}/ageRatingDeclaration", retry_not_found: true)
+  if age_rating && age_rating["data"]
+    patch("ageRatingDeclarations", age_rating["data"]["id"], {
+      healthOrWellnessTopics: true,
+      medicalOrTreatmentInformation: "NONE"
+    })
+    puts "Updated wellness age-rating declaration."
+  end
 end
 
 versions = []
