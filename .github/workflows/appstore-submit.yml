@@ -1,0 +1,49 @@
+name: Submit App Store Review
+
+on:
+  push:
+    paths:
+      - ".github/workflows/appstore-submit.yml"
+      - "scripts/appstore_submit.rb"
+  workflow_dispatch:
+
+jobs:
+  submit:
+    name: Submit for Review
+    runs-on: macos-26
+    env:
+      APP_STORE_CONNECT_APP_ID: ${{ vars.APP_STORE_CONNECT_APP_ID || secrets.APP_STORE_CONNECT_APP_ID || secrets.ASC_APP_ID || secrets.APPLE_APP_ID || '6777145740' }}
+      ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID || secrets.APP_STORE_CONNECT_API_KEY_KEY_ID || secrets.APP_STORE_CONNECT_KEY_ID || secrets.APPSTORE_API_KEY_ID || secrets.APPSTORE_KEY_ID || secrets.ASC_KEY_ID || secrets.API_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID || secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID || secrets.APP_STORE_CONNECT_ISSUER_ID || secrets.APPSTORE_API_ISSUER_ID || secrets.APPSTORE_ISSUER_ID || secrets.ASC_ISSUER_ID || secrets.API_ISSUER_ID || secrets.ISSUER_ID }}
+      ASC_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 || secrets.APP_STORE_CONNECT_API_PRIVATE_KEY_BASE64 || secrets.APP_STORE_CONNECT_API_KEY_KEY_BASE64 || secrets.APP_STORE_CONNECT_API_KEY_CONTENT_BASE64 || secrets.ASC_KEY_BASE64 || secrets.ASC_PRIVATE_KEY_BASE64 || secrets.APPSTORE_API_PRIVATE_KEY_BASE64 || secrets.APPSTORE_PRIVATE_KEY_BASE64 || secrets.APPSTORE_P8_BASE64 || secrets.APP_STORE_CONNECT_PRIVATE_KEY_BASE64 || secrets.API_PRIVATE_KEY_BASE64 || secrets.API_KEY_BASE64 }}
+      ASC_KEY_RAW: ${{ secrets.APP_STORE_CONNECT_API_PRIVATE_KEY || secrets.APP_STORE_CONNECT_API_KEY || secrets.APP_STORE_CONNECT_API_KEY_KEY || secrets.APP_STORE_CONNECT_API_KEY_CONTENT || secrets.ASC_PRIVATE_KEY || secrets.APPSTORE_PRIVATE_KEY || secrets.APPSTORE_P8 || secrets.APP_STORE_CONNECT_PRIVATE_KEY || secrets.API_PRIVATE_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare App Store Connect API key
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in APP_STORE_CONNECT_APP_ID ASC_KEY_ID ASC_ISSUER_ID; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::$name is required"
+              missing=1
+            fi
+          done
+          if [ -z "${ASC_KEY_BASE64:-}" ] && [ -z "${ASC_KEY_RAW:-}" ]; then
+            echo "::error::ASC_KEY_BASE64 or ASC_KEY_RAW is required"
+            missing=1
+          fi
+          [ "$missing" -eq 0 ]
+          key_path="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          if [ -n "${ASC_KEY_BASE64:-}" ]; then
+            printf '%s' "$ASC_KEY_BASE64" | base64 --decode > "$key_path"
+          else
+            printf '%s' "$ASC_KEY_RAW" | perl -pe 's/\\n/\n/g' > "$key_path"
+          fi
+          chmod 600 "$key_path"
+          echo "ASC_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+
+      - name: Submit for App Review
+        run: ruby scripts/appstore_submit.rb
