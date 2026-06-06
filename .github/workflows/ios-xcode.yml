@@ -95,20 +95,61 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate signing secrets
+      - name: Validate signing inputs
+        id: signing-inputs
+        run: |
+          set -euo pipefail
+          if [ -z "${APPLE_TEAM_ID:-}" ]; then
+            echo "::error::APPLE_TEAM_ID is required for archive signing"
+            exit 1
+          fi
+
+          manual_ready=true
+          for name in CERTIFICATE_BASE64 CERTIFICATE_PASSWORD PROVISION_PROFILE_BASE64; do
+            if [ -z "${!name:-}" ]; then
+              manual_ready=false
+            fi
+          done
+
+          automatic_ready=true
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_BASE64; do
+            if [ -z "${!name:-}" ]; then
+              automatic_ready=false
+            fi
+          done
+
+          if [ "$manual_ready" = true ]; then
+            echo "signing_mode=manual" >> "$GITHUB_OUTPUT"
+            echo "Using manual signing secrets."
+          elif [ "$automatic_ready" = true ]; then
+            echo "signing_mode=automatic" >> "$GITHUB_OUTPUT"
+            echo "Using Xcode automatic signing with App Store Connect API key."
+          else
+            echo "::error::Archive signing needs either manual secrets (CERTIFICATE_BASE64, CERTIFICATE_PASSWORD, PROVISION_PROFILE_BASE64) or App Store Connect API key secrets (ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_BASE64)."
+            exit 1
+          fi
+
+      - name: Prepare App Store Connect API key
+        if: ${{ steps.signing-inputs.outputs.signing_mode == 'automatic' || github.event_name == 'push' || inputs.upload_to_testflight == 'true' }}
         run: |
           set -euo pipefail
           missing=0
-          for name in APPLE_TEAM_ID CERTIFICATE_BASE64 CERTIFICATE_PASSWORD PROVISION_PROFILE_BASE64 KEYCHAIN_PASSWORD; do
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_BASE64; do
             if [ -z "${!name:-}" ]; then
-              echo "::error::$name is required for archive signing"
+              echo "::error::$name is required for automatic signing or TestFlight upload"
               missing=1
             fi
           done
-          exit "$missing"
+          [ "$missing" -eq 0 ]
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          key_path="$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%s' "$ASC_KEY_BASE64" | base64 --decode > "$key_path"
+          chmod 600 "$key_path"
+          echo "ASC_KEY_PATH=$key_path" >> "$GITHUB_ENV"
 
       - name: Install signing certificate and provisioning profile
         id: signing
+        if: ${{ steps.signing-inputs.outputs.signing_mode == 'manual' }}
         run: |
           set -euo pipefail
           mkdir -p build/signing
@@ -139,7 +180,9 @@ jobs:
       - name: Create export options
         run: |
           set -euo pipefail
-          cat > build/ExportOptions.plist <<PLIST
+          mkdir -p build
+          if [ "${{ steps.signing-inputs.outputs.signing_mode }}" = "manual" ]; then
+            cat > build/ExportOptions.plist <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -164,6 +207,28 @@ jobs:
           </dict>
           </plist>
           PLIST
+          else
+            cat > build/ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>teamID</key>
+            <string>${APPLE_TEAM_ID}</string>
+            <key>stripSwiftSymbols</key>
+            <true/>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          PLIST
+          fi
           plutil -lint build/ExportOptions.plist
 
       - name: Archive
@@ -171,17 +236,33 @@ jobs:
           mkdir -p build/logs
           set +e
           set -o pipefail
-          xcodebuild \
-            -project "$PROJECT_PATH" \
-            -scheme "$SCHEME" \
-            -configuration "$CONFIGURATION" \
-            -destination "generic/platform=iOS" \
-            -archivePath "$ARCHIVE_PATH" \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="${{ steps.signing.outputs.profile_name }}" \
-            archive 2>&1 | tee build/logs/archive-xcodebuild.log
+          if [ "${{ steps.signing-inputs.outputs.signing_mode }}" = "manual" ]; then
+            xcodebuild \
+              -project "$PROJECT_PATH" \
+              -scheme "$SCHEME" \
+              -configuration "$CONFIGURATION" \
+              -destination "generic/platform=iOS" \
+              -archivePath "$ARCHIVE_PATH" \
+              DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+              CODE_SIGN_STYLE=Manual \
+              CODE_SIGN_IDENTITY="Apple Distribution" \
+              PROVISIONING_PROFILE_SPECIFIER="${{ steps.signing.outputs.profile_name }}" \
+              archive 2>&1 | tee build/logs/archive-xcodebuild.log
+          else
+            xcodebuild \
+              -project "$PROJECT_PATH" \
+              -scheme "$SCHEME" \
+              -configuration "$CONFIGURATION" \
+              -destination "generic/platform=iOS" \
+              -archivePath "$ARCHIVE_PATH" \
+              DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+              CODE_SIGN_STYLE=Automatic \
+              -allowProvisioningUpdates \
+              -authenticationKeyPath "$ASC_KEY_PATH" \
+              -authenticationKeyID "$ASC_KEY_ID" \
+              -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+              archive 2>&1 | tee build/logs/archive-xcodebuild.log
+          fi
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -ne 0 ]; then
@@ -201,11 +282,21 @@ jobs:
       - name: Export IPA
         run: |
           set -o pipefail
-          xcodebuild \
-            -exportArchive \
-            -archivePath "$ARCHIVE_PATH" \
-            -exportOptionsPlist build/ExportOptions.plist \
+          export_args=(
+            -exportArchive
+            -archivePath "$ARCHIVE_PATH"
+            -exportOptionsPlist build/ExportOptions.plist
             -exportPath "$EXPORT_PATH"
+          )
+          if [ -n "${ASC_KEY_PATH:-}" ]; then
+            export_args+=(
+              -allowProvisioningUpdates
+              -authenticationKeyPath "$ASC_KEY_PATH"
+              -authenticationKeyID "$ASC_KEY_ID"
+              -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+            )
+          fi
+          xcodebuild "${export_args[@]}"
           find "$EXPORT_PATH" -name "*.ipa" -maxdepth 2 -print
 
       - name: Upload IPA artifact
@@ -221,22 +312,6 @@ jobs:
           name: VitalOSAI-dSYMs
           path: build/*.xcarchive/dSYMs
           if-no-files-found: warn
-
-      - name: Prepare App Store Connect API key
-        if: ${{ github.event_name == 'push' || inputs.upload_to_testflight == 'true' }}
-        run: |
-          set -euo pipefail
-          missing=0
-          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_BASE64; do
-            if [ -z "${!name:-}" ]; then
-              echo "::error::$name is required for TestFlight upload"
-              missing=1
-            fi
-          done
-          [ "$missing" -eq 0 ]
-          mkdir -p "$HOME/.appstoreconnect/private_keys"
-          printf '%s' "$ASC_KEY_BASE64" | base64 --decode > "$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
-          chmod 600 "$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
 
       - name: Upload to TestFlight
         if: ${{ github.event_name == 'push' || inputs.upload_to_testflight == 'true' }}
