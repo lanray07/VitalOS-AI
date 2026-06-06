@@ -29,6 +29,7 @@ env:
   SCHEME: VitalOSAI
   CONFIGURATION: Release
   DEFAULT_BUNDLE_ID: com.vitalos.ai
+  DEFAULT_APP_STORE_CONNECT_APP_ID: "6777145740"
   ARCHIVE_PATH: build/VitalOSAI.xcarchive
   EXPORT_PATH: build/export
 
@@ -93,6 +94,7 @@ jobs:
       ASC_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 || secrets.APP_STORE_CONNECT_API_PRIVATE_KEY_BASE64 || secrets.APP_STORE_CONNECT_API_KEY_KEY_BASE64 || secrets.APP_STORE_CONNECT_API_KEY_CONTENT_BASE64 || secrets.ASC_KEY_BASE64 || secrets.ASC_PRIVATE_KEY_BASE64 || secrets.APPSTORE_API_PRIVATE_KEY_BASE64 || secrets.APPSTORE_PRIVATE_KEY_BASE64 || secrets.APPSTORE_P8_BASE64 || secrets.APP_STORE_CONNECT_PRIVATE_KEY_BASE64 || secrets.API_PRIVATE_KEY_BASE64 || secrets.API_KEY_BASE64 }}
       ASC_KEY_RAW: ${{ secrets.APP_STORE_CONNECT_API_PRIVATE_KEY || secrets.APP_STORE_CONNECT_API_KEY || secrets.APP_STORE_CONNECT_API_KEY_KEY || secrets.APP_STORE_CONNECT_API_KEY_CONTENT || secrets.ASC_PRIVATE_KEY || secrets.APPSTORE_PRIVATE_KEY || secrets.APPSTORE_P8 || secrets.APP_STORE_CONNECT_PRIVATE_KEY || secrets.API_PRIVATE_KEY }}
       BUNDLE_ID: ${{ vars.BUNDLE_ID || secrets.BUNDLE_ID || secrets.IOS_BUNDLE_ID || secrets.APP_BUNDLE_ID }}
+      APP_STORE_CONNECT_APP_ID: ${{ vars.APP_STORE_CONNECT_APP_ID || secrets.APP_STORE_CONNECT_APP_ID || secrets.ASC_APP_ID || secrets.APPLE_APP_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -163,6 +165,58 @@ jobs:
           fi
           chmod 600 "$key_path"
           echo "ASC_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+
+      - name: Resolve App Store Connect bundle ID
+        if: ${{ steps.signing-inputs.outputs.signing_mode == 'automatic' || github.event_name == 'push' || inputs.upload_to_testflight == 'true' }}
+        run: |
+          set -euo pipefail
+          if [ -n "${BUNDLE_ID:-}" ] && [ "$BUNDLE_ID" != "$DEFAULT_BUNDLE_ID" ]; then
+            echo "Using configured bundle ID."
+            exit 0
+          fi
+
+          export APP_STORE_CONNECT_APP_ID="${APP_STORE_CONNECT_APP_ID:-$DEFAULT_APP_STORE_CONNECT_APP_ID}"
+          ruby <<'RUBY'
+          require "base64"
+          require "json"
+          require "net/http"
+          require "openssl"
+          require "uri"
+
+          def b64url(value)
+            Base64.urlsafe_encode64(value).delete("=")
+          end
+
+          header = { alg: "ES256", kid: ENV.fetch("ASC_KEY_ID"), typ: "JWT" }
+          payload = { iss: ENV.fetch("ASC_ISSUER_ID"), exp: Time.now.to_i + 1200, aud: "appstoreconnect-v1" }
+          signing_input = [b64url(header.to_json), b64url(payload.to_json)].join(".")
+          key = OpenSSL::PKey.read(File.read(ENV.fetch("ASC_KEY_PATH")))
+          der_signature = key.sign(OpenSSL::Digest.new("SHA256"), signing_input)
+          asn1 = OpenSSL::ASN1.decode(der_signature)
+          signature = asn1.value.map { |integer| integer.value.to_i.to_s(2).rjust(32, "\0")[-32, 32] }.join
+          token = "#{signing_input}.#{b64url(signature)}"
+
+          uri = URI("https://api.appstoreconnect.apple.com/v1/apps/#{ENV.fetch("APP_STORE_CONNECT_APP_ID")}")
+          request = Net::HTTP::Get.new(uri)
+          request["Authorization"] = "Bearer #{token}"
+          request["Accept"] = "application/json"
+          response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) { |http| http.request(request) }
+          unless response.code.to_i.between?(200, 299)
+            warn "App Store Connect app lookup failed with HTTP #{response.code}"
+            warn response.body
+            exit 1
+          end
+
+          body = JSON.parse(response.body)
+          bundle_id = body.dig("data", "attributes", "bundleId")
+          if bundle_id.nil? || bundle_id.empty?
+            warn "App Store Connect response did not include a bundleId"
+            exit 1
+          end
+
+          File.open(ENV.fetch("GITHUB_ENV"), "a") { |env| env.puts("BUNDLE_ID=#{bundle_id}") }
+          puts "Resolved App Store Connect bundle ID."
+          RUBY
 
       - name: Install signing certificate and provisioning profile
         id: signing
