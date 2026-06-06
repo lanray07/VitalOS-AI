@@ -70,7 +70,17 @@ def patch_review_submission(id, attributes)
       id: id,
       attributes: attributes
     }
-  })
+  }, allow_conflict: true)
+end
+
+def patch_review_submission_item(id, attributes)
+  request("patch", "/reviewSubmissionItems/#{id}", {
+    data: {
+      type: "reviewSubmissionItems",
+      id: id,
+      attributes: attributes
+    }
+  }, allow_conflict: true)
 end
 
 def create_review_submission(app_id, version_id, allow_conflict: true)
@@ -145,22 +155,32 @@ if review_submission["conflict"]
   each_page("/apps/#{app_id}/reviewSubmissions?limit=20") { |submission| existing << submission }
   stale_ready = existing.select { |submission| submission.dig("attributes", "state") == "READY_FOR_REVIEW" }
   stale_ready.each do |submission|
-    patch_review_submission(submission["id"], { canceled: true })
-    puts "Canceled stale review submission #{submission["id"]}."
+    result = patch_review_submission(submission["id"], { canceled: true })
+    if result["conflict"]
+      puts "Review submission #{submission["id"]} is not cancellable; reusing it."
+    else
+      puts "Canceled stale review submission #{submission["id"]}."
+    end
   end
 
-  review_submission = create_review_submission(app_id, version["id"], allow_conflict: false)
-  review_submission_data = review_submission["data"]
-  unless review_submission_data
-    warn "Could not create or find a ready review submission."
-    warn review_submission["body"]
-    exit 1
+  review_submission = create_review_submission(app_id, version["id"], allow_conflict: true)
+  if review_submission["conflict"]
+    review_submission_data = stale_ready.first
+  else
+    review_submission_data = review_submission["data"]
   end
 else
   review_submission_data = review_submission["data"]
 end
 
 puts "Using review submission #{review_submission_data["id"]}."
+existing_items = []
+each_page("/reviewSubmissions/#{review_submission_data["id"]}/items?limit=20") { |item| existing_items << item }
+existing_items.each do |item|
+  result = patch_review_submission_item(item["id"], { removed: true })
+  puts(result["conflict"] ? "Review item #{item["id"]} could not be removed; continuing." : "Removed stale review item #{item["id"]}.")
+end
+
 item = request("post", "/reviewSubmissionItems", {
   data: {
     type: "reviewSubmissionItems",
@@ -172,7 +192,9 @@ item = request("post", "/reviewSubmissionItems", {
 }, allow_conflict: true)
 
 if item["conflict"]
-  puts "Review submission item already exists or cannot be recreated."
+  warn "Review submission item already exists or cannot be recreated."
+  warn item["body"]
+  exit 1
 else
   puts "Added app version to review submission."
 end
