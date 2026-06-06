@@ -63,6 +63,19 @@ def patch(type, id, attributes)
   })
 end
 
+def patch_review_submission(id, attributes, version_id)
+  request("patch", "/reviewSubmissions/#{id}", {
+    data: {
+      type: "reviewSubmissions",
+      id: id,
+      attributes: attributes,
+      relationships: {
+        appStoreVersionForReview: { data: { type: "appStoreVersions", id: version_id } }
+      }
+    }
+  })
+end
+
 def each_page(path)
   next_path = path
   loop do
@@ -120,7 +133,8 @@ review_submission = request("post", "/reviewSubmissions", {
     type: "reviewSubmissions",
     attributes: { platform: "IOS" },
     relationships: {
-      app: { data: { type: "apps", id: app_id } }
+      app: { data: { type: "apps", id: app_id } },
+      appStoreVersionForReview: { data: { type: "appStoreVersions", id: version["id"] } }
     }
   }
 }, allow_conflict: true)
@@ -155,5 +169,5 @@ else
   puts "Added app version to review submission."
 end
 
-patch("reviewSubmissions", review_submission_data["id"], { submitted: true })
+patch_review_submission(review_submission_data["id"], { submitted: true }, version["id"])
 puts "Submitted VitalOS AI for App Review."
