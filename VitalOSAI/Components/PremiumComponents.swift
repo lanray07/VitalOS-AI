@@ -66,7 +66,7 @@ struct VitalScoreRing: View {
                     .font(.system(size: 52, weight: .semibold, design: .rounded))
                 Text(title.uppercased())
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.softText)
+                    .foregroundStyle(Color.softText)
             }
         }
         .frame(width: 220, height: 220)
@@ -83,7 +83,7 @@ struct MetricCard: View {
                 HStack {
                     Text(metric.title)
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(.softText)
+                        .foregroundStyle(Color.softText)
                     Spacer()
                     Circle()
                         .fill(metric.tintName == "emerald" ? .vitalEmerald : .electricBlue)
@@ -121,16 +121,16 @@ struct ProtocolCard: View {
                 HStack {
                     Text(item.category.uppercased())
                         .font(.caption2.weight(.bold))
-                        .foregroundStyle(.vitalEmerald)
+                        .foregroundStyle(Color.vitalEmerald)
                     Spacer()
                     Image(systemName: "sparkles")
-                        .foregroundStyle(.electricBlue)
+                        .foregroundStyle(Color.electricBlue)
                 }
                 Text(item.title)
                     .font(.headline)
                 Text(item.detail)
                     .font(.subheadline)
-                    .foregroundStyle(.softText)
+                    .foregroundStyle(Color.softText)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -190,16 +190,16 @@ struct ProjectionCard: View {
                 HStack(alignment: .lastTextBaseline) {
                     Text("\(scenario.currentValue)")
                         .font(.title2.weight(.medium))
-                        .foregroundStyle(.softText)
+                        .foregroundStyle(Color.softText)
                     Image(systemName: "arrow.right")
-                        .foregroundStyle(.electricBlue)
+                        .foregroundStyle(Color.electricBlue)
                     Text("\(scenario.projectedValue)")
                         .font(.largeTitle.weight(.semibold))
-                        .foregroundStyle(.vitalEmerald)
+                        .foregroundStyle(Color.vitalEmerald)
                 }
                 Text(scenario.caption)
                     .font(.caption)
-                    .foregroundStyle(.softText)
+                    .foregroundStyle(Color.softText)
             }
         }
     }
@@ -214,20 +214,20 @@ struct ShareCardPreview: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("VitalOS AI")
                 .font(.caption.weight(.bold))
-                .foregroundStyle(.electricBlue)
+                .foregroundStyle(Color.electricBlue)
             Text(title)
                 .font(.title3.weight(.semibold))
             Text(value)
                 .font(.system(size: 54, weight: .bold, design: .rounded))
-                .foregroundStyle(.vitalEmerald)
+                .foregroundStyle(Color.vitalEmerald)
             Text(caption)
                 .font(.subheadline)
-                .foregroundStyle(.softText)
+                .foregroundStyle(Color.softText)
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.black, in: RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(.electricBlue.opacity(0.35)))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.electricBlue.opacity(0.35)))
     }
 }
 
@@ -235,18 +235,18 @@ struct UpgradeBanner: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "bolt.badge.automatic")
-                .foregroundStyle(.vitalEmerald)
+                .foregroundStyle(Color.vitalEmerald)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Adaptive protocols are a premium capability")
                     .font(.subheadline.weight(.semibold))
                 Text("Unlock deeper AI personalization and projections.")
                     .font(.caption)
-                    .foregroundStyle(.softText)
+                    .foregroundStyle(Color.softText)
             }
             Spacer()
         }
         .padding(14)
-        .background(.electricBlue.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+        .background(Color.electricBlue.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -263,7 +263,7 @@ struct PrimaryButton: View {
                 .padding(.vertical, 14)
         }
         .buttonStyle(.borderedProminent)
-        .tint(.electricBlue)
+        .tint(Color.electricBlue)
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }

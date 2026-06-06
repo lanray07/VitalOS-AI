@@ -19,7 +19,7 @@ struct HabitSystemView: View {
                                 Text("Build your consistency layer")
                                     .font(.headline)
                                 Text("Track small wellness habits locally and use them to personalize protocols.")
-                                    .foregroundStyle(.softText)
+                                    .foregroundStyle(Color.softText)
                                 PrimaryButton(title: "Add Starter Habits", systemImage: "plus") {
                                     starterHabits.forEach { modelContext.insert(Habit(title: $0)) }
                                 }
@@ -41,7 +41,7 @@ struct HabitSystemView: View {
                                     Text(habit.title)
                                     Text("\(habit.streak) day streak")
                                         .font(.caption)
-                                        .foregroundStyle(.softText)
+                                        .foregroundStyle(Color.softText)
                                 }
                                 Spacer()
                             }

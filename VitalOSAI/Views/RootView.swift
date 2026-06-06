@@ -54,6 +54,6 @@ struct MainTabView: View {
                 .tabItem { Label(tab.rawValue, systemImage: tab.icon) }
             }
         }
-        .tint(.electricBlue)
+        .tint(Color.electricBlue)
     }
 }

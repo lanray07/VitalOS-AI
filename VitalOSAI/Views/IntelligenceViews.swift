@@ -56,7 +56,7 @@ struct HormonalInsightsPlaceholderView: View {
                     TextField("Wellness notes", text: $notes)
                     Text("Educational wellness insights only. This module does not diagnose, treat, or make medical claims.")
                         .font(.caption)
-                        .foregroundStyle(.softText)
+                        .foregroundStyle(Color.softText)
                 }
             }
         }
@@ -83,7 +83,7 @@ struct FutureProjectionEngineView: View {
             }
             Text("Projection visuals are estimates based on wellness inputs and habit assumptions.")
                 .font(.caption)
-                .foregroundStyle(.softText)
+                .foregroundStyle(Color.softText)
         }
     }
 }

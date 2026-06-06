@@ -28,10 +28,10 @@ struct DashboardView: View {
                                 .font(.headline)
                             Text(appState.latestInsight)
                                 .font(.subheadline)
-                                .foregroundStyle(.softText)
+                                .foregroundStyle(Color.softText)
                             Text("Wellness guidance only. Not medical advice.")
                                 .font(.caption)
-                                .foregroundStyle(.vitalEmerald)
+                                .foregroundStyle(Color.vitalEmerald)
                         }
                     }
                     UpgradeBanner()
@@ -50,7 +50,7 @@ struct DashboardView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Text(appState.subscriptionPlan.rawValue)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.vitalEmerald)
+                    .foregroundStyle(Color.vitalEmerald)
             }
         }
     }

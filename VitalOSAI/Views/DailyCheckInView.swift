@@ -27,14 +27,14 @@ struct DailyCheckInView: View {
 
                     if isGenerating {
                         ProgressView("Generating adaptive reflection...")
-                            .tint(.electricBlue)
+                            .tint(Color.electricBlue)
                     } else if !reflection.isEmpty {
                         GlassPanel {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("AI Reflection")
                                     .font(.headline)
                                 Text(reflection)
-                                    .foregroundStyle(.softText)
+                                    .foregroundStyle(Color.softText)
                             }
                         }
                     }
@@ -56,10 +56,10 @@ struct DailyCheckInView: View {
                     Text(title)
                     Spacer()
                     Text("\(Int(value.wrappedValue))")
-                        .foregroundStyle(.vitalEmerald)
+                        .foregroundStyle(Color.vitalEmerald)
                 }
                 Slider(value: value, in: 1...100)
-                    .tint(.electricBlue)
+                    .tint(Color.electricBlue)
             }
         }
     }

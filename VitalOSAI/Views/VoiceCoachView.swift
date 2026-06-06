@@ -45,7 +45,7 @@ struct VoiceCoachView: View {
 
                     if isGenerating {
                         ProgressView("Generating wellness response...")
-                            .tint(.electricBlue)
+                            .tint(Color.electricBlue)
                     }
 
                     if !aiResponse.isEmpty {
@@ -54,7 +54,7 @@ struct VoiceCoachView: View {
                                 Text("AI Response")
                                     .font(.headline)
                                 Text(aiResponse)
-                                    .foregroundStyle(.softText)
+                                    .foregroundStyle(Color.softText)
                             }
                         }
                     }

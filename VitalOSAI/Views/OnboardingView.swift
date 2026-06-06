@@ -28,10 +28,10 @@ struct OnboardingView: View {
                             .font(.system(size: 42, weight: .semibold, design: .rounded))
                         Text("The operating system for your health.")
                             .font(.title3)
-                            .foregroundStyle(.softText)
+                            .foregroundStyle(Color.softText)
                         Text("Your body changes every day. Your plan should too.")
                             .font(.subheadline)
-                            .foregroundStyle(.vitalEmerald)
+                            .foregroundStyle(Color.vitalEmerald)
                     }
 
                     GlassPanel {
@@ -76,7 +76,7 @@ struct OnboardingView: View {
                             Label("Wellness guidance only", systemImage: "checkmark.seal")
                             Text("VitalOS AI is not medical advice, not a diagnostic tool, and does not replace healthcare professionals. Consult a qualified professional when appropriate.")
                                 .font(.footnote)
-                                .foregroundStyle(.softText)
+                                .foregroundStyle(Color.softText)
                         }
                     }
 

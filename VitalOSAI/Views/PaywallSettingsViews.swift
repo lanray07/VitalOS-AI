@@ -12,7 +12,7 @@ struct PaywallView: View {
                     Text("Unlock VitalOS")
                         .font(.system(size: 38, weight: .semibold, design: .rounded))
                     Text("Adaptive AI protocols, deeper analytics, voice coaching, and advanced personalization.")
-                        .foregroundStyle(.softText)
+                        .foregroundStyle(Color.softText)
 
                     planCard(title: "Free", price: "Included", features: ["Basic tracking", "Limited insights", "Limited AI interactions"], plan: .free)
                     planCard(title: "Vital Premium", price: "£12.99/mo or £99.99/yr", features: ["Adaptive protocols", "AI coach", "Voice coaching", "Advanced analytics", "Future projections"], plan: .premium)
@@ -33,18 +33,18 @@ struct PaywallView: View {
                         Text(title)
                             .font(.title3.weight(.semibold))
                         Text(price)
-                            .foregroundStyle(.vitalEmerald)
+                            .foregroundStyle(Color.vitalEmerald)
                     }
                     Spacer()
                     if appState.subscriptionPlan == plan {
                         Image(systemName: "checkmark.seal.fill")
-                            .foregroundStyle(.vitalEmerald)
+                            .foregroundStyle(Color.vitalEmerald)
                     }
                 }
                 ForEach(features, id: \.self) { feature in
                     Label(feature, systemImage: "checkmark")
                         .font(.subheadline)
-                        .foregroundStyle(.softText)
+                        .foregroundStyle(Color.softText)
                 }
                 Button("Select \(title)") {
                     appState.subscriptionPlan = plan
@@ -150,7 +150,7 @@ struct PlaceholderListView: View {
                 GlassPanel {
                     HStack {
                         Image(systemName: "sparkle")
-                            .foregroundStyle(.electricBlue)
+                            .foregroundStyle(Color.electricBlue)
                         Text(item)
                         Spacer()
                     }
