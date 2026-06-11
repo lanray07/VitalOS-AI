@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import StoreKit
 
 struct PaywallView: View {
     @EnvironmentObject private var appState: AppState
@@ -14,9 +15,43 @@ struct PaywallView: View {
                     Text("Adaptive AI protocols, deeper analytics, voice coaching, and advanced personalization.")
                         .foregroundStyle(Color.softText)
 
-                    planCard(title: "Free", price: "Included", features: ["Basic tracking", "Limited insights", "Limited AI interactions"], plan: .free)
-                    planCard(title: "Vital Premium", price: "£12.99/mo or £99.99/yr", features: ["Adaptive protocols", "AI coach", "Voice coaching", "Advanced analytics", "Future projections"], plan: .premium)
-                    planCard(title: "Vital Elite", price: "£24.99/mo", features: ["Premium AI models", "Deep analytics", "Advanced personalization", "Premium themes"], plan: .elite)
+                    if appState.storeService.isLoadingProducts {
+                        ProgressView("Loading subscription options...")
+                            .tint(Color.electricBlue)
+                    }
+
+                    if let purchaseError = appState.storeService.purchaseError {
+                        Text(purchaseError)
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.orange)
+                    }
+
+                    freePlanCard()
+                    subscriptionCard(
+                        title: "Vital Premium",
+                        subtitle: "Adaptive protocols, voice coaching, advanced analytics, and future projections.",
+                        features: ["Adaptive protocols", "AI coach", "Voice coaching", "Advanced analytics", "Future projections"],
+                        productIDs: [
+                            StoreKitSubscriptionService.premiumMonthlyProductID,
+                            StoreKitSubscriptionService.premiumYearlyProductID
+                        ],
+                        plan: .premium
+                    )
+                    subscriptionCard(
+                        title: "Vital Elite",
+                        subtitle: "Premium AI models, deep analytics, advanced personalization, and elevated themes.",
+                        features: ["Premium AI models", "Deep analytics", "Advanced personalization", "Premium themes"],
+                        productIDs: [StoreKitSubscriptionService.eliteMonthlyProductID],
+                        plan: .elite
+                    )
+
+                    Button {
+                        Task { await appState.storeService.restorePurchases() }
+                    } label: {
+                        Label("Restore Purchases", systemImage: "arrow.clockwise")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
                 }
                 .padding(20)
             }
@@ -25,15 +60,44 @@ struct PaywallView: View {
         .task { await appState.storeService.loadProducts() }
     }
 
-    private func planCard(title: String, price: String, features: [String], plan: SubscriptionPlan) -> some View {
+    private func freePlanCard() -> some View {
         GlassPanel {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     VStack(alignment: .leading) {
+                        Text("Free")
+                            .font(.title3.weight(.semibold))
+                        Text("Included")
+                            .foregroundStyle(Color.vitalEmerald)
+                    }
+                    Spacer()
+                    if appState.subscriptionPlan == .free {
+                        Image(systemName: "checkmark.seal.fill")
+                            .foregroundStyle(Color.vitalEmerald)
+                    }
+                }
+                ForEach(["Basic tracking", "Limited insights", "Limited AI interactions"], id: \.self) { feature in
+                    Label(feature, systemImage: "checkmark")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.softText)
+                }
+                Text("No purchase required.")
+                    .font(.footnote)
+                    .foregroundStyle(Color.softText)
+            }
+        }
+    }
+
+    private func subscriptionCard(title: String, subtitle: String, features: [String], productIDs: [String], plan: SubscriptionPlan) -> some View {
+        GlassPanel {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(title)
                             .font(.title3.weight(.semibold))
-                        Text(price)
-                            .foregroundStyle(Color.vitalEmerald)
+                        Text(subtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.softText)
                     }
                     Spacer()
                     if appState.subscriptionPlan == plan {
@@ -46,13 +110,46 @@ struct PaywallView: View {
                         .font(.subheadline)
                         .foregroundStyle(Color.softText)
                 }
-                Button("Select \(title)") {
-                    appState.subscriptionPlan = plan
-                    appState.storeService.purchasePlaceholder(plan: plan)
+                VStack(spacing: 10) {
+                    ForEach(productIDs, id: \.self) { productID in
+                        purchaseButton(for: productID, plan: plan)
+                    }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(plan == .elite ? Color.vitalEmerald : Color.electricBlue)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func purchaseButton(for productID: String, plan: SubscriptionPlan) -> some View {
+        if let product = appState.storeService.product(for: productID) {
+            Button {
+                Task { await appState.storeService.purchase(product) }
+            } label: {
+                HStack {
+                    Text(product.displayName)
+                    Spacer()
+                    Text(product.displayPrice)
+                        .fontWeight(.semibold)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .disabled(appState.storeService.isPurchasing)
+            .buttonStyle(.borderedProminent)
+            .tint(plan == .elite ? Color.vitalEmerald : Color.electricBlue)
+        } else {
+            Button {
+                Task { await appState.storeService.loadProducts() }
+            } label: {
+                HStack {
+                    Text("Subscription unavailable")
+                    Spacer()
+                    Image(systemName: "arrow.clockwise")
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .disabled(appState.storeService.isLoadingProducts || appState.storeService.isPurchasing)
+            .buttonStyle(.borderedProminent)
+            .tint(.gray)
         }
     }
 }
@@ -74,6 +171,8 @@ struct SettingsView: View {
     @State private var notificationsEnabled = false
     @State private var coachingStyle: CoachingStyle = .supportive
     @State private var showingDisclaimer = false
+    @State private var showingPrivacyPolicy = false
+    @State private var showingTerms = false
 
     var body: some View {
         ZStack {
@@ -102,9 +201,12 @@ struct SettingsView: View {
                         }
                     }
                 }
+                Section("AI & Privacy") {
+                    AIPrivacyDisclosureView()
+                }
                 Section("Legal & Safety") {
-                    Button("Privacy Policy") {}
-                    Button("Terms of Use") {}
+                    Button("Privacy Policy") { showingPrivacyPolicy = true }
+                    Button("Terms of Use") { showingTerms = true }
                     Button("Health Disclaimer") { showingDisclaimer = true }
                 }
                 Section {
@@ -124,6 +226,16 @@ struct SettingsView: View {
         } message: {
             Text("VitalOS AI provides wellness guidance, educational insights, and informational suggestions only. It is not medical advice, diagnosis, treatment, or emergency support.")
         }
+        .alert("Privacy Policy", isPresented: $showingPrivacyPolicy) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("VitalOS AI stores profile preferences, check-ins, habits, voice transcripts, and subscription status in the app. Version 1.0 does not send personal wellness data to a third-party AI service. HealthKit, microphone, speech recognition, and notifications are only used after Apple system permission prompts.")
+        }
+        .alert("Terms of Use", isPresented: $showingTerms) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("VitalOS AI is for educational wellness guidance only. It is not medical advice, diagnosis, treatment, emergency support, or clinical monitoring. Subscription purchases are managed by Apple through StoreKit.")
+        }
     }
 
     private func deleteAllData() {
@@ -137,6 +249,22 @@ struct SettingsView: View {
         protocols.forEach(modelContext.delete)
         subscriptions.forEach(modelContext.delete)
         appState.subscriptionPlan = .free
+    }
+}
+
+struct AIPrivacyDisclosureView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("No third-party AI sharing in version 1.0", systemImage: "lock.shield")
+                .font(.headline)
+            Text("VitalOS AI generates wellness suggestions in this app using local educational rules. Check-ins, HealthKit data, voice transcripts, and profile details are not sent to a third-party AI provider in this version.")
+                .font(.footnote)
+                .foregroundStyle(Color.softText)
+            Text("If remote AI is added in a future version, VitalOS will identify the provider, disclose the data categories first, and ask for permission before sending personal data.")
+                .font(.caption)
+                .foregroundStyle(Color.softText)
+        }
+        .padding(.vertical, 6)
     }
 }
 

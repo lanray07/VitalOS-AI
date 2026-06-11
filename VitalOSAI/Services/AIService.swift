@@ -49,41 +49,6 @@ final class MockAIService: AIService {
     }
 }
 
-final class RemoteAIService: AIService {
-    private let endpoint = URL(string: "https://YOUR_BACKEND_URL.com/vitalos-ai")!
-    private let fallback = MockAIService()
-
-    func generateInsight(module: String, context: String) async throws -> String {
-        var request = URLRequest(url: endpoint)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "module": module,
-            "dailyCheckIn": [:],
-            "sleepData": [:],
-            "activityData": [:],
-            "voiceTranscript": context
-        ])
-        let (_, response) = try await URLSession.shared.data(for: request)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-            return try await fallback.generateInsight(module: module, context: context)
-        }
-        return try await fallback.generateInsight(module: module, context: context)
-    }
-
-    func generateProtocol(from checkIn: DailyCheckIn?) -> [ProtocolRecommendation] {
-        fallback.generateProtocol(from: checkIn)
-    }
-
-    func generateVoiceResponse(transcript: String) async throws -> String {
-        try await fallback.generateVoiceResponse(transcript: transcript)
-    }
-
-    func defaultProtocol() -> [ProtocolRecommendation] {
-        fallback.defaultProtocol()
-    }
-}
-
 final class WellnessInsightService {
     private let aiService: AIService
     init(aiService: AIService) { self.aiService = aiService }

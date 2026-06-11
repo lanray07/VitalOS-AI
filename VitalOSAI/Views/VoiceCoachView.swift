@@ -59,6 +59,16 @@ struct VoiceCoachView: View {
                         }
                     }
 
+                    GlassPanel {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("AI privacy", systemImage: "lock.shield")
+                                .font(.headline)
+                            Text("In version 1.0, voice transcripts and wellness inputs are not sent to a third-party AI service. Responses are generated in the app from local educational wellness rules.")
+                                .font(.footnote)
+                                .foregroundStyle(Color.softText)
+                        }
+                    }
+
                     PrimaryButton(title: "Generate Response", systemImage: "sparkles") {
                         Task { await generateResponse() }
                     }

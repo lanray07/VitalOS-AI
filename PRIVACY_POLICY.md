@@ -18,7 +18,15 @@ Voice Coach features may use speech recognition to transcribe what you say. Tran
 
 ## Data Storage
 
-VitalOS AI is designed to be offline-friendly and stores core app data locally on your device using Apple platform storage. Mock AI is enabled by default. If remote AI features are enabled in the future, request data will be sent only to the configured backend endpoint for generating wellness insights.
+VitalOS AI is designed to be offline-friendly and stores core app data locally on your device using Apple platform storage.
+
+## AI Processing and Third-Party Sharing
+
+VitalOS AI version 1.0 does not send check-ins, Apple Health data, voice transcripts, profile details, or other personal wellness data to a third-party AI service. Wellness responses are generated in the app from local educational wellness rules.
+
+If remote AI processing is added in a future version, VitalOS AI will identify the provider, disclose the data categories before transfer, ask for permission before sending personal data, and require the provider to provide the same or equal protection for user data.
+
+VitalOS AI does not sell user data and does not share personal wellness data with third-party AI providers in version 1.0.
 
 ## Subscriptions
 

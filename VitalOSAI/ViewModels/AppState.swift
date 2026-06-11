@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import UserNotifications
 
 @MainActor
@@ -18,6 +19,7 @@ final class AppState: ObservableObject {
     let wellnessInsightService: WellnessInsightService
     let storeService = StoreKitSubscriptionService()
     let notificationService = LocalNotificationService()
+    private var cancellables: Set<AnyCancellable> = []
 
     init() {
         let mock = MockAIService()
@@ -27,6 +29,16 @@ final class AppState: ObservableObject {
         self.projectionService = ProjectionEngineService(aiService: mock)
         self.wellnessInsightService = WellnessInsightService(aiService: mock)
         self.latestProtocol = mock.defaultProtocol()
+        storeService.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+        storeService.$currentPlan
+            .sink { [weak self] plan in
+                self?.subscriptionPlan = plan
+            }
+            .store(in: &cancellables)
     }
 
     func completeOnboarding() {

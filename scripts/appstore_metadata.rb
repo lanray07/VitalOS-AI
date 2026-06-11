@@ -3,6 +3,7 @@ require "json"
 require "net/http"
 require "openssl"
 require "uri"
+require "digest"
 
 API_BASE = "https://api.appstoreconnect.apple.com/v1"
 
@@ -41,6 +42,27 @@ def request(method, path, body = nil, retry_not_found: false, allow_conflict: fa
   response.body.nil? || response.body.empty? ? {} : JSON.parse(response.body)
 end
 
+def upload_asset(operation, file_path)
+  uri = URI(operation.fetch("url"))
+  method = operation.fetch("method", "PUT").capitalize
+  req = Object.const_get("Net::HTTP::#{method}").new(uri)
+  Array(operation["requestHeaders"]).each do |header|
+    req[header.fetch("name")] = header.fetch("value")
+  end
+  offset = operation.fetch("offset", 0)
+  length = operation["length"]
+  File.open(file_path, "rb") do |file|
+    file.seek(offset)
+    req.body = length ? file.read(length) : file.read
+  end
+  response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) { |http| http.request(req) }
+  unless response.code.to_i.between?(200, 299)
+    warn "Asset upload failed with HTTP #{response.code}"
+    warn response.body
+    exit 1
+  end
+end
+
 def get(path)
   request("get", path)
 end
@@ -75,6 +97,18 @@ def post_allow_conflict(type, attributes, relationships = {})
   }, allow_conflict: true)
 end
 
+def post_review_detail(attributes, version_id)
+  request("post", "/appStoreReviewDetails", {
+    data: {
+      type: "appStoreReviewDetails",
+      attributes: attributes,
+      relationships: {
+        appStoreVersion: { data: { type: "appStoreVersions", id: version_id } }
+      }
+    }
+  }, allow_conflict: true)
+end
+
 def each_page(path)
   next_path = path
   loop do
@@ -84,6 +118,11 @@ def each_page(path)
     break unless next_link
     next_path = next_link
   end
+end
+
+def related_resource(path)
+  response = request("get", path, retry_not_found: true)
+  response && response["data"]
 end
 
 app_id = ENV.fetch("APP_STORE_CONNECT_APP_ID")
@@ -133,6 +172,21 @@ editable_versions.each do |version|
     })
     puts "Updated version URLs for #{loc.dig("attributes", "locale")}."
   end
+
+  review_notes = "Review notes for 1.0 (2): Subscriptions use StoreKit 2 with product IDs vitalos.premium.monthly, vitalos.premium.yearly, and vitalos.elite.monthly. The paywall is available at Settings > Subscription. Purchase buttons call Product.purchase() and Restore Purchases calls AppStore.sync(). No sign-in is required. VitalOS AI version 1.0 does not send check-ins, HealthKit data, voice transcripts, profile details, or other personal wellness data to a third-party AI service. Responses are generated in the app from local educational wellness rules. We removed the unused remote AI placeholder and added disclosures in Settings and Voice Coach."
+  review_detail = related_resource("/appStoreVersions/#{version["id"]}/appStoreReviewDetail")
+  if review_detail
+    patch("appStoreReviewDetails", review_detail["id"], {
+      demoAccountRequired: false,
+      notes: review_notes
+    })
+  else
+    post_review_detail({
+      demoAccountRequired: false,
+      notes: review_notes
+    }, version["id"])
+  end
+  puts "Updated App Review notes."
 end
 
 subscription_groups = []
@@ -165,21 +219,24 @@ plans = [
     name: "Vital Premium Monthly",
     period: "ONE_MONTH",
     level: 2,
-    description: "Adaptive protocols, AI coach, and analytics."
+    description: "Adaptive protocols, AI coach, and analytics.",
+    review_screenshot: "AppStoreAssets/SubscriptionReview/vital-premium-monthly-review.png"
   },
   {
     product_id: "vitalos.premium.yearly",
     name: "Vital Premium Yearly",
     period: "ONE_YEAR",
     level: 2,
-    description: "Yearly adaptive protocols, AI coach, and analytics."
+    description: "Yearly adaptive protocols, AI coach, and analytics.",
+    review_screenshot: "AppStoreAssets/SubscriptionReview/vital-premium-yearly-review.png"
   },
   {
     product_id: "vitalos.elite.monthly",
     name: "Vital Elite Monthly",
     period: "ONE_MONTH",
     level: 1,
-    description: "Premium AI models and deeper personalization."
+    description: "Premium AI models and deeper personalization.",
+    review_screenshot: "AppStoreAssets/SubscriptionReview/vital-elite-monthly-review.png"
   }
 ]
 
@@ -222,6 +279,32 @@ plans.each do |plan|
     })
     puts "Created localization for #{plan[:product_id]}."
   end
+
+  next if related_resource("/subscriptions/#{subscription["id"]}/appStoreReviewScreenshot")
+
+  screenshot_path = plan[:review_screenshot]
+  unless File.exist?(screenshot_path)
+    puts "Review screenshot missing for #{plan[:product_id]} at #{screenshot_path}."
+    next
+  end
+
+  created_screenshot = post("subscriptionAppStoreReviewScreenshots", {
+    fileName: File.basename(screenshot_path),
+    fileSize: File.size(screenshot_path)
+  }, {
+    subscription: { data: { type: "subscriptions", id: subscription["id"] } }
+  })["data"]
+
+  Array(created_screenshot.dig("attributes", "uploadOperations")).each do |operation|
+    upload_asset(operation, screenshot_path)
+  end
+
+  checksum = Digest::MD5.file(screenshot_path).base64digest
+  patch("subscriptionAppStoreReviewScreenshots", created_screenshot["id"], {
+    sourceFileChecksum: checksum,
+    uploaded: true
+  })
+  puts "Uploaded App Review screenshot for #{plan[:product_id]}."
 end
 
 puts "Metadata automation complete."

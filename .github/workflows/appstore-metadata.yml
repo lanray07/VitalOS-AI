@@ -7,6 +7,7 @@ on:
       - "scripts/appstore_metadata.rb"
       - "PRIVACY_POLICY.md"
       - "TERMS_OF_USE.md"
+      - "AppStoreAssets/SubscriptionReview/**"
   workflow_dispatch:
 
 jobs:
