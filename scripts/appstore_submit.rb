@@ -120,7 +120,7 @@ def active_review_submission(app_id)
   submissions = []
   each_page("/apps/#{app_id}/reviewSubmissions?limit=20") { |submission| submissions << submission }
   puts "Current review submissions: #{submissions.map { |submission| "#{submission["id"]}=#{submission.dig("attributes", "state")}" }.join(", ")}"
-  submissions.find { |submission| %w[READY_FOR_REVIEW WAITING_FOR_REVIEW IN_REVIEW].include?(submission.dig("attributes", "state")) }
+  submissions.find { |submission| %w[UNRESOLVED_ISSUES READY_FOR_REVIEW WAITING_FOR_REVIEW IN_REVIEW].include?(submission.dig("attributes", "state")) }
 end
 
 app_id = ENV.fetch("APP_STORE_CONNECT_APP_ID")
@@ -242,9 +242,8 @@ item = request("post", "/reviewSubmissionItems", {
 }, allow_conflict: true)
 
 if item["conflict"]
-  warn "Review submission item already exists or cannot be recreated."
+  warn "Review submission item already exists or cannot be recreated; continuing with the existing item."
   warn item["body"]
-  exit 1
 else
   puts "Added app version to review submission."
 end
