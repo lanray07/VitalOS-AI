@@ -105,6 +105,17 @@ def create_review_submission(app_id, version_id, allow_conflict: true)
   }, allow_conflict: allow_conflict)
 end
 
+def submit_app_store_version(version_id)
+  request("post", "/appStoreVersionSubmissions", {
+    data: {
+      type: "appStoreVersionSubmissions",
+      relationships: {
+        appStoreVersion: { data: { type: "appStoreVersions", id: version_id } }
+      }
+    }
+  }, allow_conflict: true)
+end
+
 def each_page(path)
   next_path = path
   loop do
@@ -204,6 +215,19 @@ if review_submission["conflict"]
   end
 else
   review_submission_data = review_submission["data"]
+end
+
+unless review_submission_data
+  puts "No reusable review submission was returned; using appStoreVersionSubmissions fallback."
+  result = submit_app_store_version(version["id"])
+  if result["conflict"]
+    warn "App Store version submission already exists or cannot be recreated."
+    warn result["body"]
+    exit 1
+  end
+
+  puts "Submitted VitalOS AI for App Review."
+  exit 0
 end
 
 puts "Using review submission #{review_submission_data["id"]}."
