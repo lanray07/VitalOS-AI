@@ -120,8 +120,9 @@ app_id = ENV.fetch("APP_STORE_CONNECT_APP_ID")
 target_build_number = ENV.fetch("TARGET_BUILD_NUMBER", "2")
 versions = []
 each_page("/apps/#{app_id}/appStoreVersions?filter[platform]=IOS&limit=50") { |version| versions << version }
-version = versions.find { |item| item.dig("attributes", "versionString") == "1.0" && item.dig("attributes", "appVersionState") == "PREPARE_FOR_SUBMISSION" } ||
-          versions.find { |item| item.dig("attributes", "appVersionState") == "PREPARE_FOR_SUBMISSION" } ||
+editable_states = %w[PREPARE_FOR_SUBMISSION REJECTED DEVELOPER_REJECTED]
+version = versions.find { |item| item.dig("attributes", "versionString") == "1.0" && editable_states.include?(item.dig("attributes", "appVersionState")) } ||
+          versions.find { |item| editable_states.include?(item.dig("attributes", "appVersionState")) } ||
           versions.find { |item| %w[READY_FOR_REVIEW WAITING_FOR_REVIEW IN_REVIEW].include?(item.dig("attributes", "appVersionState")) }
 
 unless version
