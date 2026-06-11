@@ -105,17 +105,6 @@ def create_review_submission(app_id, version_id, allow_conflict: true)
   }, allow_conflict: allow_conflict)
 end
 
-def submit_app_store_version(version_id)
-  request("post", "/appStoreVersionSubmissions", {
-    data: {
-      type: "appStoreVersionSubmissions",
-      relationships: {
-        appStoreVersion: { data: { type: "appStoreVersions", id: version_id } }
-      }
-    }
-  }, allow_conflict: true)
-end
-
 def each_page(path)
   next_path = path
   loop do
@@ -125,6 +114,13 @@ def each_page(path)
     break unless next_link
     next_path = next_link
   end
+end
+
+def active_review_submission(app_id)
+  submissions = []
+  each_page("/apps/#{app_id}/reviewSubmissions?limit=20") { |submission| submissions << submission }
+  puts "Current review submissions: #{submissions.map { |submission| "#{submission["id"]}=#{submission.dig("attributes", "state")}" }.join(", ")}"
+  submissions.find { |submission| %w[READY_FOR_REVIEW WAITING_FOR_REVIEW IN_REVIEW].include?(submission.dig("attributes", "state")) }
 end
 
 app_id = ENV.fetch("APP_STORE_CONNECT_APP_ID")
@@ -209,28 +205,25 @@ if review_submission["conflict"]
 
   review_submission = create_review_submission(app_id, version["id"], allow_conflict: true)
   if review_submission["conflict"]
-    review_submission_data = stale_ready.first
+    review_submission_data = stale_ready.first || active_review_submission(app_id)
   else
-    review_submission_data = review_submission["data"]
+    review_submission_data = review_submission["data"] || active_review_submission(app_id)
   end
 else
-  review_submission_data = review_submission["data"]
+  review_submission_data = review_submission["data"] || active_review_submission(app_id)
 end
 
 unless review_submission_data
-  puts "No reusable review submission was returned; using appStoreVersionSubmissions fallback."
-  result = submit_app_store_version(version["id"])
-  if result["conflict"]
-    warn "App Store version submission already exists or cannot be recreated."
-    warn result["body"]
-    exit 1
-  end
-
-  puts "Submitted VitalOS AI for App Review."
-  exit 0
+  warn "No active review submission is available to submit."
+  exit 1
 end
 
 puts "Using review submission #{review_submission_data["id"]}."
+if %w[WAITING_FOR_REVIEW IN_REVIEW].include?(review_submission_data.dig("attributes", "state"))
+  puts "Review submission is already #{review_submission_data.dig("attributes", "state")}."
+  exit 0
+end
+
 existing_items = []
 each_page("/reviewSubmissions/#{review_submission_data["id"]}/items?limit=20") { |item| existing_items << item }
 existing_items.each do |item|
