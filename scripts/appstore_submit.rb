@@ -63,6 +63,15 @@ def patch(type, id, attributes)
   })
 end
 
+def set_version_build(version_id, build_id)
+  request("patch", "/appStoreVersions/#{version_id}/relationships/build", {
+    data: {
+      type: "builds",
+      id: build_id
+    }
+  })
+end
+
 def patch_review_submission(id, attributes)
   request("patch", "/reviewSubmissions/#{id}", {
     data: {
@@ -108,6 +117,7 @@ def each_page(path)
 end
 
 app_id = ENV.fetch("APP_STORE_CONNECT_APP_ID")
+target_build_number = ENV.fetch("TARGET_BUILD_NUMBER", "2")
 versions = []
 each_page("/apps/#{app_id}/appStoreVersions?filter[platform]=IOS&limit=50") { |version| versions << version }
 version = versions.find { |item| item.dig("attributes", "versionString") == "1.0" && item.dig("attributes", "appVersionState") == "PREPARE_FOR_SUBMISSION" } ||
@@ -125,6 +135,28 @@ if %w[READY_FOR_REVIEW WAITING_FOR_REVIEW IN_REVIEW].include?(version.dig("attri
   puts "App version is already submitted or in review."
   exit 0
 end
+
+selected_build = nil
+30.times do |attempt|
+  builds = []
+  each_page("/builds?filter[app]=#{app_id}&filter[version]=#{target_build_number}&sort=-uploadedDate&limit=10") { |build| builds << build }
+  selected_build = builds.find { |build| build.dig("attributes", "processingState") == "VALID" } || builds.first
+  break if selected_build && selected_build.dig("attributes", "processingState") == "VALID"
+  if selected_build
+    puts "Build #{target_build_number} is #{selected_build.dig("attributes", "processingState")}; waiting for App Store processing."
+  else
+    puts "Build #{target_build_number} is not visible yet; waiting for App Store processing."
+  end
+  sleep 60 if attempt < 29
+end
+
+unless selected_build && selected_build.dig("attributes", "processingState") == "VALID"
+  warn "Build #{target_build_number} is not ready for submission."
+  exit 1
+end
+
+set_version_build(version["id"], selected_build["id"])
+puts "Selected build #{target_build_number} for App Store version #{version.dig("attributes", "versionString")}."
 
 subscription_groups = []
 each_page("/apps/#{app_id}/subscriptionGroups?limit=50") { |group| subscription_groups << group }
