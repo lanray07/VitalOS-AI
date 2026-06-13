@@ -12,6 +12,8 @@ VitalOS AI is not a medical device and does not provide medical advice, diagnosi
 
 VitalOS AI may offer auto-renewable subscriptions through Apple In-App Purchase. Subscription billing, renewal, cancellation, and refunds are handled by Apple under Apple Media Services terms.
 
+VitalOS AI uses the standard Apple Terms of Use (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
+
 ## Acceptable Use
 
 Use VitalOS AI only for lawful personal wellness purposes. Do not rely on the app for urgent, emergency, diagnostic, or treatment decisions.

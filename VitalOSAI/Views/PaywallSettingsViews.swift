@@ -52,6 +52,8 @@ struct PaywallView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
+
+                    SubscriptionLegalLinksView()
                 }
                 .padding(20)
             }
@@ -126,7 +128,12 @@ struct PaywallView: View {
                 Task { await appState.storeService.purchase(product) }
             } label: {
                 HStack {
-                    Text(product.displayName)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(product.displayName)
+                        Text(subscriptionLength(for: productID))
+                            .font(.caption.weight(.medium))
+                            .opacity(0.85)
+                    }
                     Spacer()
                     Text(product.displayPrice)
                         .fontWeight(.semibold)
@@ -152,6 +159,31 @@ struct PaywallView: View {
             .tint(.gray)
         }
     }
+
+    private func subscriptionLength(for productID: String) -> String {
+        switch productID {
+        case StoreKitSubscriptionService.premiumYearlyProductID:
+            return "1 year"
+        default:
+            return "1 month"
+        }
+    }
+}
+
+private struct SubscriptionLegalLinksView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Subscriptions renew automatically unless canceled in your App Store account settings at least 24 hours before the end of the current period.")
+                .font(.footnote)
+                .foregroundStyle(Color.softText)
+            HStack(spacing: 16) {
+                Link("Privacy Policy", destination: AppLegalLinks.privacyPolicy)
+                Link("Terms of Use (EULA)", destination: AppLegalLinks.termsOfUse)
+            }
+            .font(.footnote.weight(.semibold))
+        }
+        .padding(.top, 2)
+    }
 }
 
 struct SettingsView: View {
@@ -171,8 +203,6 @@ struct SettingsView: View {
     @State private var notificationsEnabled = false
     @State private var coachingStyle: CoachingStyle = .supportive
     @State private var showingDisclaimer = false
-    @State private var showingPrivacyPolicy = false
-    @State private var showingTerms = false
 
     var body: some View {
         ZStack {
@@ -183,7 +213,17 @@ struct SettingsView: View {
                     Text("Current plan: \(appState.subscriptionPlan.rawValue)")
                 }
                 Section("Integrations") {
-                    Toggle("HealthKit permissions", isOn: $healthEnabled)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Toggle("HealthKit (Apple Health) permissions", isOn: $healthEnabled)
+                            .onChange(of: healthEnabled) { _, enabled in
+                                if enabled {
+                                    Task { await appState.requestHealthKitPermission() }
+                                }
+                            }
+                        Text("VitalOS uses HealthKit to read steps, active energy, sleep analysis, and resting heart rate after permission. This supports educational wellness insights only.")
+                            .font(.caption)
+                            .foregroundStyle(Color.softText)
+                    }
                     Toggle("Voice settings", isOn: $voiceEnabled)
                     Toggle("Notifications", isOn: $notificationsEnabled)
                         .onChange(of: notificationsEnabled) { _, enabled in
@@ -205,8 +245,8 @@ struct SettingsView: View {
                     AIPrivacyDisclosureView()
                 }
                 Section("Legal & Safety") {
-                    Button("Privacy Policy") { showingPrivacyPolicy = true }
-                    Button("Terms of Use") { showingTerms = true }
+                    Link("Privacy Policy", destination: AppLegalLinks.privacyPolicy)
+                    Link("Terms of Use (EULA)", destination: AppLegalLinks.termsOfUse)
                     Button("Health Disclaimer") { showingDisclaimer = true }
                 }
                 Section {
@@ -225,16 +265,6 @@ struct SettingsView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text("VitalOS AI provides wellness guidance, educational insights, and informational suggestions only. It is not medical advice, diagnosis, treatment, or emergency support.")
-        }
-        .alert("Privacy Policy", isPresented: $showingPrivacyPolicy) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("VitalOS AI stores profile preferences, check-ins, habits, voice transcripts, and subscription status in the app. Version 1.0 does not send personal wellness data to a third-party AI service. HealthKit, microphone, speech recognition, and notifications are only used after Apple system permission prompts.")
-        }
-        .alert("Terms of Use", isPresented: $showingTerms) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("VitalOS AI is for educational wellness guidance only. It is not medical advice, diagnosis, treatment, emergency support, or clinical monitoring. Subscription purchases are managed by Apple through StoreKit.")
         }
     }
 

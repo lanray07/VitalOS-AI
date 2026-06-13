@@ -124,7 +124,7 @@ def active_review_submission(app_id)
 end
 
 app_id = ENV.fetch("APP_STORE_CONNECT_APP_ID")
-target_build_number = ENV.fetch("TARGET_BUILD_NUMBER", "2")
+target_build_number = ENV.fetch("TARGET_BUILD_NUMBER", "3")
 versions = []
 each_page("/apps/#{app_id}/appStoreVersions?filter[platform]=IOS&limit=50") { |version| versions << version }
 editable_states = %w[PREPARE_FOR_SUBMISSION REJECTED DEVELOPER_REJECTED]

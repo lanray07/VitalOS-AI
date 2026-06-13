@@ -65,7 +65,17 @@ struct OnboardingView: View {
                         VStack(alignment: .leading, spacing: 14) {
                             Text("Optional Connections")
                                 .font(.headline)
-                            Toggle("Apple Health", isOn: $connectHealth)
+                            VStack(alignment: .leading, spacing: 6) {
+                                Toggle("HealthKit (Apple Health)", isOn: $connectHealth)
+                                    .onChange(of: connectHealth) { _, enabled in
+                                        if enabled {
+                                            Task { await appState.requestHealthKitPermission() }
+                                        }
+                                    }
+                                Text("HealthKit can read steps, active energy, sleep analysis, and resting heart rate after permission to personalize educational wellness insights.")
+                                    .font(.caption)
+                                    .foregroundStyle(Color.softText)
+                            }
                             Toggle("Apple Watch placeholder", isOn: $connectWatch)
                             Toggle("Sleep tracking placeholder", isOn: $connectSleep)
                         }

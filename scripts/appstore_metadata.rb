@@ -109,6 +109,10 @@ def post_review_detail(attributes, version_id)
   }, allow_conflict: true)
 end
 
+def delete_resource(type, id)
+  request("delete", "/#{type}/#{id}")
+end
+
 def each_page(path)
   next_path = path
   loop do
@@ -125,10 +129,21 @@ def related_resource(path)
   response && response["data"]
 end
 
+def upload_reserved_asset(resource_type, resource_id, file_path)
+  Array(related_resource("/#{resource_type}/#{resource_id}").dig("attributes", "uploadOperations")).each do |operation|
+    upload_asset(operation, file_path)
+  end
+  patch(resource_type, resource_id, {
+    sourceFileChecksum: Digest::MD5.file(file_path).base64digest,
+    uploaded: true
+  })
+end
+
 app_id = ENV.fetch("APP_STORE_CONNECT_APP_ID")
 privacy_url = ENV.fetch("PRIVACY_POLICY_URL")
 support_url = ENV.fetch("SUPPORT_URL")
 marketing_url = ENV.fetch("MARKETING_URL")
+terms_url = ENV.fetch("TERMS_OF_USE_URL", "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")
 
 app = get("/apps/#{app_id}")
 puts "Updating metadata for #{app.dig("data", "attributes", "name")}."
@@ -166,14 +181,18 @@ editable_versions.each do |version|
   localizations = []
   each_page("/appStoreVersions/#{version["id"]}/appStoreVersionLocalizations?limit=50") { |loc| localizations << loc }
   localizations.each do |loc|
+    existing_description = loc.dig("attributes", "description").to_s.strip
+    eula_line = "Terms of Use (EULA): #{terms_url}"
+    description = existing_description.include?(terms_url) ? existing_description : [existing_description, eula_line].reject(&:empty?).join("\n\n")
     patch("appStoreVersionLocalizations", loc["id"], {
       supportUrl: support_url,
-      marketingUrl: marketing_url
+      marketingUrl: marketing_url,
+      description: description
     })
     puts "Updated version URLs for #{loc.dig("attributes", "locale")}."
   end
 
-  review_notes = "Review notes for 1.0 (2): Subscriptions use StoreKit 2 with product IDs vitalos.premium.monthly, vitalos.premium.yearly, and vitalos.elite.monthly. The paywall is available at Settings > Subscription. Purchase buttons call Product.purchase() and Restore Purchases calls AppStore.sync(). No sign-in is required. VitalOS AI version 1.0 does not send check-ins, HealthKit data, voice transcripts, profile details, or other personal wellness data to a third-party AI service. Responses are generated in the app from local educational wellness rules. We removed the unused remote AI placeholder and added disclosures in Settings and Voice Coach."
+  review_notes = "Review notes for 1.0 (3): Subscriptions use StoreKit 2 with product IDs vitalos.premium.monthly, vitalos.premium.yearly, and vitalos.elite.monthly. The paywall is available at Settings > Subscription. Purchase buttons call Product.purchase() and Restore Purchases calls AppStore.sync(). The paywall shows each subscription title, duration, price, and functional Privacy Policy and Terms of Use (EULA) links. Legal links are also available in Settings > Legal & Safety. HealthKit (Apple Health) functionality is identified in Onboarding and Settings, and the app requests permission before reading steps, active energy, sleep analysis, and resting heart rate. No sign-in is required. VitalOS AI version 1.0 does not send check-ins, HealthKit data, voice transcripts, profile details, or other personal wellness data to a third-party AI service. Responses are generated in the app from local educational wellness rules."
   review_detail = related_resource("/appStoreVersions/#{version["id"]}/appStoreReviewDetail")
   if review_detail
     patch("appStoreReviewDetails", review_detail["id"], {
@@ -220,7 +239,8 @@ plans = [
     period: "ONE_MONTH",
     level: 2,
     description: "Adaptive protocols, AI coach, and analytics.",
-    review_screenshot: "AppStoreAssets/SubscriptionReview/vital-premium-monthly-review.png"
+    review_screenshot: "AppStoreAssets/SubscriptionReview/vital-premium-monthly-review.png",
+    promo_image: "AppStoreAssets/PromotionalImages/vital-premium-monthly-promo.png"
   },
   {
     product_id: "vitalos.premium.yearly",
@@ -228,7 +248,8 @@ plans = [
     period: "ONE_YEAR",
     level: 2,
     description: "Yearly adaptive protocols, AI coach, and analytics.",
-    review_screenshot: "AppStoreAssets/SubscriptionReview/vital-premium-yearly-review.png"
+    review_screenshot: "AppStoreAssets/SubscriptionReview/vital-premium-yearly-review.png",
+    promo_image: "AppStoreAssets/PromotionalImages/vital-premium-yearly-promo.png"
   },
   {
     product_id: "vitalos.elite.monthly",
@@ -236,7 +257,8 @@ plans = [
     period: "ONE_MONTH",
     level: 1,
     description: "Premium AI models and deeper personalization.",
-    review_screenshot: "AppStoreAssets/SubscriptionReview/vital-elite-monthly-review.png"
+    review_screenshot: "AppStoreAssets/SubscriptionReview/vital-elite-monthly-review.png",
+    promo_image: "AppStoreAssets/PromotionalImages/vital-elite-monthly-promo.png"
   }
 ]
 
@@ -278,6 +300,26 @@ plans.each do |plan|
       subscription: { data: { type: "subscriptions", id: subscription["id"] } }
     })
     puts "Created localization for #{plan[:product_id]}."
+  end
+
+  promo_path = plan[:promo_image]
+  existing_images = []
+  each_page("/subscriptions/#{subscription["id"]}/images?limit=10") { |image| existing_images << image }
+  existing_images.each do |image|
+    delete_resource("subscriptionImages", image["id"])
+    puts "Deleted old promotional image for #{plan[:product_id]}."
+  end
+  if File.exist?(promo_path)
+    created_image = post("subscriptionImages", {
+      fileName: File.basename(promo_path),
+      fileSize: File.size(promo_path)
+    }, {
+      subscription: { data: { type: "subscriptions", id: subscription["id"] } }
+    })["data"]
+    upload_reserved_asset("subscriptionImages", created_image["id"], promo_path)
+    puts "Uploaded promotional image for #{plan[:product_id]}."
+  else
+    puts "Promotional image missing for #{plan[:product_id]} at #{promo_path}."
   end
 
   next if related_resource("/subscriptions/#{subscription["id"]}/appStoreReviewScreenshot")
